@@ -1,38 +1,45 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";  // Import useNavigate for redirection
 
 function Movies() {
   const [data, setData] = useState([]);
-  const [showOverlay, setShowOverlay] = useState(false);  
-  const [currentPost, setCurrentPost] = useState(null);  
-  const [newTitle, setNewTitle] = useState("");  
-  const [newBlogText, setNewBlogText] = useState("");  
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [currentPost, setCurrentPost] = useState(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [newBlogText, setNewBlogText] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const API = "http://127.0.0.1:8000/api/home/blog/";
-  const accessToken = localStorage.getItem("accessToken");
+  const accessToken = localStorage.getItem("accessToken");  // Get token from localStorage
+  const navigate = useNavigate();  // Initialize the useNavigate hook
 
-  // Function to fetch data from API
+  // Fetch data from API
   const getAPI = async () => {
+    setIsLoading(true);
+    setErrorMessage("");
     try {
       const res = await axios.get(API, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      console.log("Fetched data:", res.data.data);
-      setData(res.data.data);  
+      setData(res.data.data);
     } catch (e) {
+      setErrorMessage("Failed to fetch posts.");
       console.log("Error fetching data:", e);
-      alert("Failed to fetch posts.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     if (accessToken) {
-      getAPI();
+      getAPI();  // Fetch data if logged in
     } else {
-      alert("Please log in.");
+      navigate("/login");  // Redirect to login if no access token
     }
-  }, [accessToken]);
+  }, [accessToken, navigate]);  // Dependency on accessToken to trigger re-fetch
 
-  // Function to handle deleting a post (sending uuid in body)
+  // Handle deleting a post
   const handleDelete = async (uuid) => {
     if (!accessToken) {
       alert("Please log in again.");
@@ -43,27 +50,26 @@ function Movies() {
       const res = await axios.delete(API, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        data: { uuid: uuid },  
+        data: { uuid },
       });
-      console.log("Post deleted:", res.data);
-      setData(data.filter(item => item.uuid !== uuid));  
+      setData(data.filter((item) => item.uuid !== uuid)); // Remove from local state
+      alert("Post deleted successfully!");
     } catch (error) {
-      console.error("Error deleting post:", error);
       alert("Failed to delete the post.");
     }
   };
 
-  // Function to handle opening the update form
+  // Handle opening the update form
   const handleUpdateClick = (post) => {
-    setCurrentPost(post);  
-    setNewTitle(post.title);  
-    setNewBlogText(post.blog_text);  
-    setShowOverlay(true);  
+    setCurrentPost(post);
+    setNewTitle(post.title);
+    setNewBlogText(post.blog_text);
+    setShowOverlay(true);
   };
 
-  // Function to handle updating a post
+  // Handle updating a post
   const handleUpdate = async () => {
     if (!newTitle || !newBlogText) {
       alert("Both fields are required!");
@@ -76,65 +82,78 @@ function Movies() {
     }
 
     try {
-      const res = await axios.patch(API, 
+      const res = await axios.patch(
+        API,
         {
-          uuid: currentPost.uuid,  
+          uuid: currentPost.uuid,
           title: newTitle,
-          blog_text: newBlogText
+          blog_text: newBlogText,
         },
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json"
-          }
+            "Content-Type": "application/json",
+          },
         }
       );
-      console.log("Post updated:", res.data);
+      setData(
+        data.map((item) =>
+          item.uuid === currentPost.uuid ? { ...item, title: newTitle, blog_text: newBlogText } : item
+        )
+      ); // Update locally without refetching
+      setShowOverlay(false);
       alert("Post updated successfully!");
-      setShowOverlay(false);  
-      getAPI();  
     } catch (error) {
-      console.error("Error updating post:", error);
       alert("Failed to update the post.");
     }
   };
 
+
   return (
     <>
-      <div>
-        <h1>Blogs</h1>
-        {data.map((item, index) => (
-          <div key={index}>
-            <h2>{item.title}</h2>
-            <p>{item.blog_text}</p>
-            <img
-              src={`http://127.0.0.1:8000${item.main_image}`}
-              width={500}
-              alt={item.title}
-            />
-            <button onClick={() => handleDelete(item.uuid)}>Delete</button>
-            <button onClick={() => handleUpdateClick(item)}>Update</button>
-          </div>
-        ))}
+      <h1>Blogs</h1>
+      <div className="m-3 flex gap-4">
+
+        {isLoading ? (
+          <p>Loading...</p>
+        ) : errorMessage ? (
+          <p>{errorMessage}</p>
+        ) : (
+          data.map((item) => (
+            <div key={item.uuid}>
+              <h2 className="font-extralight">{item.title}</h2>
+              <p className="font-mono">{item.blog_text}</p>
+              <img
+                src={`http://127.0.0.1:8000${item.main_image}`}
+                width={500}
+                alt={item.title}
+              />
+              <button className="p-3 gap-4 bg-black text-white m-4" onClick={() => handleDelete(item.uuid)}>Delete</button>
+              <button className="p-3 gap-4 bg-black text-white" onClick={() => handleUpdateClick(item)}>Update</button>
+            </div>
+          ))
+        )}
       </div>
 
       {showOverlay && (
         <div style={overlayStyles}>
           <div style={modalStyles}>
-            <h2>Update Post</h2>
+            <h2 className="font-extrabold">Update Post</h2>
             <input
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
+              className="p-4 border-2"
               placeholder="New Title"
             />
             <textarea
               value={newBlogText}
               onChange={(e) => setNewBlogText(e.target.value)}
+              className="p-4 border-2"
               placeholder="New Blog Text"
             />
-            <button onClick={handleUpdate}>Update Post</button>
-            <button onClick={() => setShowOverlay(false)}>Close</button>
+            <button className="p-4 bg-black text-white m-4" onClick={handleUpdate}>Update Post</button>
+            <button className="p-4 bg-black text-white" onClick={() => setShowOverlay(false)}>Close</button>
           </div>
         </div>
       )}
@@ -153,6 +172,7 @@ const overlayStyles = {
   justifyContent: "center",
   alignItems: "center",
   zIndex: 1000,
+  padding:20,
 };
 
 const modalStyles = {
