@@ -7,36 +7,43 @@ function Register() {
     const [last_name, setLast_name] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
     const [errors, setErrors] = useState({});
-    const Navigate = useNavigate();
+    const [loading, setLoading] = useState(false);  // Loading state for form submission
+    const navigate = useNavigate();
 
     const handleRegister = async (e) => {
         e.preventDefault();
 
         // Reset errors before submitting
         setErrors({});
+        setLoading(true);  // Set loading to true when submitting
 
         try {
             const API = 'http://127.0.0.1:8000/api/account/register/';
 
             const res = await axios.post(API, {
-                first_name: first_name,
-                last_name: last_name,
-                username: username,
-                password: password,
+                first_name,
+                last_name,
+                email,
+                username,
+                password,
             });
 
             console.log(res.data);
 
-            if (res.status === 200) {
-                Navigate('/login');
+            if (res.status === 201) {
+                navigate('/login');  // Navigate to login page after successful registration
             }
 
         } catch (error) {
             console.log(error);
+            setLoading(false);  // Set loading to false when done
+
             if (error.response) {
                 // Capture and display backend validation errors
                 const responseErrors = error.response.data;
+
                 if (responseErrors) {
                     setErrors(responseErrors);
                 }
@@ -58,6 +65,8 @@ function Register() {
                     value={first_name}
                     onChange={(e) => setFirst_name(e.target.value)}
                 />
+                {errors.first_name && <p style={{ color: 'red' }}>{errors.first_name[0]}</p>}
+
                 <input
                     type="text"
                     placeholder="Last Name"
@@ -65,6 +74,17 @@ function Register() {
                     value={last_name}
                     onChange={(e) => setLast_name(e.target.value)}
                 />
+                {errors.last_name && <p style={{ color: 'red' }}>{errors.last_name[0]}</p>}
+
+                <input
+                    type="email"  // Use "email" type for proper email validation
+                    placeholder="Email"
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                />
+                {errors.email && <p style={{ color: 'red' }}>{errors.email[0]}</p>}
+
                 <input
                     type="text"
                     placeholder="Username"
@@ -73,7 +93,7 @@ function Register() {
                     onChange={(e) => setUsername(e.target.value)}
                 />
                 {errors.username && <p style={{ color: 'red' }}>{errors.username[0]}</p>}
-                
+
                 <input
                     type="password"
                     placeholder="Password"
@@ -85,7 +105,10 @@ function Register() {
 
                 {errors.general && <p style={{ color: 'red' }}>{errors.general}</p>}
 
-                <button type="submit">Register</button>
+                <button type="submit" disabled={loading}>  {/* Disable button while loading */}
+                    {loading ? 'Registering...' : 'Register'}
+                </button>
+                
             </form>
         </>
     );
